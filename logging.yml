@@ -1,0 +1,45 @@
+version: 1
+formatters:
+  standard:
+    format: '[%(asctime)s] %(levelname)-8s %(name)10s: %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: standard
+    stream: ext://sys.stdout
+  app_error_file:
+    class: logging.handlers.RotatingFileHandler
+    level: ERROR
+    formatter: standard
+    filename: /log/app_error.log
+    maxBytes: 131072000 # 1024* 1024* 125
+    backupCount: 2
+loggers:
+  app:
+    level: INFO
+    handlers: [console, app_error_file]
+    propagate: no
+  pymongo.topology:
+    level: ERROR
+    handlers: [console, app_error_file]
+    propagate: no
+  pymongo.connection:
+    level: ERROR
+    handlers: [console, app_error_file]
+    propagate: no
+  pymongo.serverSelection:
+    level: ERROR
+    handlers: [console, app_error_file]
+    propagate: no
+  pymongo.command:
+    level: ERROR
+    handlers: [console, app_error_file]
+    propagate: no
+  openai._base_client:
+    level: ERROR
+    handlers: [console, scheduler_error_file]
+    propagate: no
+root:
+  level: INFO
+  handlers: [console]

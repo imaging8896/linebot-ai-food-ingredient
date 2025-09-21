@@ -1,0 +1,11 @@
+**/.DS_Store
+
+.venv
+.vscode
+.env
+*.log
+logging_local.yml
+bot.db
+
+**/__pycache__
+**/*.pyc
