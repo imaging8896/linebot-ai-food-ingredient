@@ -32,12 +32,6 @@ jobs:
     - name: Echo increment part of the new tag
       run: |
         echo "The version increment was: ${{ steps.dryRunGetNewVer.outputs.part }}"
-  build-and-push-with-ver:
-    needs: get-new-version
-    uses: ./.github/workflows/lib-build-and-push-with-ver.yml
-    with:
-      version: ${{ needs.get-new-version.outputs.new-version }}
-    secrets: inherit
   push-tag:
     runs-on: ubuntu-24.04
     steps:
