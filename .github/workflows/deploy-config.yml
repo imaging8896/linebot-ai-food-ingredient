@@ -1,0 +1,40 @@
+name: deploy-config
+
+concurrency: cd
+
+on: 
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy environment'
+        required: true
+        type: environment
+
+jobs:
+  deploy-config:
+    environment: ${{ inputs.environment }} # still requires an explicit
+    runs-on: ubuntu-latest
+    steps:
+    - name: Create .env
+      run: |
+        touch .env
+        echo "ENV=${{ inputs.environment }}" >> .env
+        echo "LINE_CHANNEL_SECRET=${{ secrets.LINE_CHANNEL_SECRET }}" >> .env
+        echo "LINE_CHANNEL_ACCESS_TOKEN=${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}" >> .env
+        echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+        echo "IMAGE_URL_PRFIX=https://${{ secrets.SERVER_HOST }}/image" >> .env
+        echo "MONGO_DB_CLOUD_HOST=${{ secrets.MONGO_DB_CLOUD_HOST }}" >> .env
+        echo "MONGO_DB_USER=${{ secrets.MONGO_DB_USER }}" >> .env
+        echo "MONGO_DB_PASSWORD=${{ secrets.MONGO_DB_PASSWORD }}" >> .env
+        echo "MONGO_DB_DATABASE=${{ secrets.MONGO_DB_DATABASE }}" >> .env
+    - name: Install SSH Key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.TED_PK }}
+        known_hosts: 'just-a-placeholder-so-we-dont-get-errors'
+    - name: Install Config
+      run: |
+        ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "sudo mkdir -p ${{ vars.CONFIG_PATH }}"
+        scp .env ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:.
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "sudo mv .env ${{ vars.CONFIG_PATH }}/.env"

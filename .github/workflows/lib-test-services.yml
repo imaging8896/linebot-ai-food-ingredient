@@ -1,0 +1,17 @@
+name: test-services
+
+on:
+  workflow_call:
+    secrets:
+      SERVER_HOST:
+        required: true
+
+jobs:
+  test-service:
+    strategy:
+      matrix:
+        environment: [prod]
+    environment: ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    steps:
+    - run: curl -X POST -f https://${{ secrets.SERVER_HOST }}/${{ secrets.STATUS_API_PATH }}

@@ -1,0 +1,63 @@
+name: deploy-app
+
+concurrency: cd
+
+on: 
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy environment'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+        - prod
+      version:
+        description: 'Deploy version. Choose from existing tag'
+        required: true
+        type: string
+
+jobs:
+  deploy-app:
+    environment: ${{ inputs.environment }} # still requires an explicit
+    runs-on: ubuntu-latest
+    env:
+      CONTAINER_PORT: 5566
+      CONTAINER_LOG_PATH: /log 
+      CONTAINER_CONFIG_PATH: /opt/config
+      CONTAINER_IMAGE_PATH: /var/html/image
+      DOCKER_IMAGE: tedimaging/stock-linebot:foodingredient.${{ inputs.version }}
+    steps:
+    - name: Install SSH Key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.TED_PK }}
+        known_hosts: 'just-a-placeholder-so-we-dont-get-errors'
+    - name: Setup SSH to server
+      run: |
+        ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+    - name: Stop the original APP service
+      run: |
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "sudo docker stop ${{ vars.APP_NAME }}" || true
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "sudo docker rm ${{ vars.APP_NAME }}"   || true
+    - name: Prepare service volumes
+      run: | # Share volume with scheduler. Don't remove IMAGE_PATH folder. This will make docker volume broken.
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "sudo mkdir -p ${{ vars.IMAGE_PATH }}"
+    - name: Start APP service
+      run: | 
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "echo ${{ secrets.DOCKERHUB_TOKEN_TED }} | sudo docker login --username ${{ secrets.DOCKERHUB_USER_TED }} --password-stdin"
+        
+        docker_log="-v ${{ vars.SERVER_LOG_PATH }}:${CONTAINER_LOG_PATH}"
+        docker_config="-v ${{ vars.CONFIG_PATH }}:${CONTAINER_CONFIG_PATH}"
+        docker_image="-v ${{ vars.IMAGE_PATH }}:${CONTAINER_IMAGE_PATH}"
+        echo "Deploy docker image ${DOCKER_IMAGE}"
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "sudo docker run -d --restart always -p ${{ secrets.SERVICE_PORT }}:${CONTAINER_PORT} --name ${{ vars.APP_NAME }} -m ${{ vars.APP_MEMORY }} --memory-swap ${{ vars.APP_SWAP }} ${docker_log} ${docker_config} ${docker_image} ${DOCKER_IMAGE}"
+    - name: Checking APP service
+      run: |
+        sleep 60
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "sudo docker logs ${{ vars.APP_NAME }}"
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "sudo docker ps -f name=${{ vars.APP_NAME }}"
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "if [[ \$(sudo docker ps -f name=${{ vars.APP_NAME }} --format '{{.State}}') != 'running' ]]; then exit 1; fi"
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "netstat -lntp"
+    - name: Test APP service
+      run: ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "curl http://localhost:${{ secrets.SERVICE_PORT }}"
