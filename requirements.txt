@@ -2,3 +2,4 @@ line-bot-sdk
 flask
 python-dotenv
 pyyaml # For logging.yml
+pymongo

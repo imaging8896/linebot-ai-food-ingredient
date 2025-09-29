@@ -20,6 +20,10 @@ loggers:
     level: INFO
     handlers: [console, app_error_file]
     propagate: no
+  db:
+    level: INFO
+    handlers: [console, app_error_file]
+    propagate: no
   pymongo.topology:
     level: ERROR
     handlers: [console, app_error_file]
