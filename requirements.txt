@@ -3,3 +3,5 @@ flask
 python-dotenv
 pyyaml # For logging.yml
 pymongo
+schema # Check response format of openai
+openai
