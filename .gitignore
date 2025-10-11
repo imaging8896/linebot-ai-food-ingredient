@@ -6,6 +6,7 @@
 *.log
 logging_local.yml
 bot.db
+memo
 
 **/__pycache__
 **/*.pyc
