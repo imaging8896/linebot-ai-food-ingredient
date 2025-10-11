@@ -24,6 +24,10 @@ loggers:
     level: INFO
     handlers: [console, app_error_file]
     propagate: no
+  ai:
+    level: INFO
+    handlers: [console, app_error_file]
+    propagate: no
   pymongo.topology:
     level: ERROR
     handlers: [console, app_error_file]
@@ -42,7 +46,7 @@ loggers:
     propagate: no
   openai._base_client:
     level: ERROR
-    handlers: [console, scheduler_error_file]
+    handlers: [console, app_error_file]
     propagate: no
 root:
   level: INFO
