@@ -1,0 +1,1 @@
+LINE_BOT_NAME = "AI讓你吃天然"

@@ -1,10 +1,14 @@
 from linebot.v3 import WebhookHandler
-from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, ReplyMessageRequest, TextMessage, ValidateMessageRequest, QuickReply, QuickReplyItem, MessageAction, Message
+from linebot.v3.messaging import Configuration, ApiClient
 from linebot.v3.webhooks import MessageEvent, TextMessageContent, PostbackEvent, JoinEvent
 
 from . import app_config
 from . import app_context
 from .line import postback
+from .line.message.api import reply_message
+from .line.message.direct_message_only import flex_message_direct_message_only
+from .line.message.welcome import flex_message_welcome
+from .line.event import EventSourceType
 
 
 logger = app_context.app_logger
@@ -26,40 +30,47 @@ def handle_linebot_message_text(linebot_event: MessageEvent):
     #         "text": "123"
     #     },
     #     "timestamp": 1644116599193,
+    _, source_type, reply_token, _, _ = _parse_linebot_event(linebot_event)
 
-    message_dict = linebot_event.message.to_dict()
-    event_message: str = message_dict["text"]
-    quote_token: str = message_dict["quoteToken"]
+    user_message, _ = _parse_user_message_event(linebot_event)
+    logger.info(f"Got user message event: {user_message=}")
 
-    user_id, source_type, reply_token, group_id, room_id = _parse_linebot_event(linebot_event)
+    if source_type != EventSourceType.USER:
+        logger.warning("Ignored user message event from not user direct")
+
+    with ApiClient(linebot_configuration) as api_client:
+        try:
+            reply_message(api_client, reply_token, messages=[flex_message_welcome()])
+        except Exception:
+            logger.exception("Failed handling user message event")
+            reply_message(api_client, reply_token, messages=[flex_message_welcome(with_sorry_message=True)])
 
 
 @linebot_handler.add(PostbackEvent)
 def handle_linebot_postback(linebot_event: PostbackEvent):
-    user_id, source_type, reply_token, _, _ = _parse_linebot_event(linebot_event)
-    quote_token = None
+    _parse_linebot_event(linebot_event)
 
     postback_command, postback_args, postback_kw = postback.parse_postback_data(linebot_event.postback.data)
+    logger.info(f"Got postback event: {postback_command=} {postback_args=} {postback_kw=}")
+    logger.warning("Ignored postback event")
+
+    # with ApiClient(linebot_configuration) as _:
+    #     try:
+    #         pass
+    #     except Exception:
+    #         logger.exception("Failed handling postback event")
 
 
 @linebot_handler.add(JoinEvent)
 def handle_joined(event: JoinEvent):
-    try:
-        with ApiClient(linebot_configuration) as api_client:
-            logger.info(f"Joined event: {event}")
-            user_id, _, reply_token, _, _ = _parse_linebot_event(event)
-            quote_token = None
+    _, _, reply_token, _, _ = _parse_linebot_event(event)
+    logger.info("Got joined event")
 
-            # messages = [stock_handler.get_welcome_message_for_group()]
-
-            # message_api = MessagingApi(api_client)
-            # message_api.validate_reply(ValidateMessageRequest(messages=messages))
-
-            # message_api.reply_message(ReplyMessageRequest(replyToken=reply_token, notificationDisabled=False, messages=messages))
-    except Exception:
-        logger.exception("APP joined event got exception")
-        # message_api.reply_message(ReplyMessageRequest(replyToken=reply_token, notificationDisabled=False, messages=messages))
-        raise
+    with ApiClient(linebot_configuration) as api_client:
+        try:
+            reply_message(api_client, reply_token, messages=[flex_message_direct_message_only()])
+        except Exception:
+            logger.exception("Failed handling joined event")
 
 
 def _parse_linebot_event(linebot_event: MessageEvent | PostbackEvent | JoinEvent):
@@ -77,6 +88,13 @@ def _parse_linebot_event(linebot_event: MessageEvent | PostbackEvent | JoinEvent
     #     "replyToken": "7a8537d675344ad099e89386732a75d0",
     #     "mode": "active"
     # }
+    # In Room
+    #     "source": {
+    #     "type": "room",
+    #     "roomId": "Ra8dbf4673c...",
+    #     "userId": "U4af4980629..."
+    #   }
+    # }
     if linebot_event.source is None:
         msg = f"Line event source is None, cannot process the event. {linebot_event=}"
         raise ValueError(msg)
@@ -87,9 +105,17 @@ def _parse_linebot_event(linebot_event: MessageEvent | PostbackEvent | JoinEvent
 
     source_dict = linebot_event.source.to_dict()
     user_id: str = source_dict["userId"]
-    source_type: str = linebot_event.source.type
+    source_type = EventSourceType(linebot_event.source.type)
     reply_token: str = linebot_event.reply_token
     group_id: str | None = getattr(linebot_event.source, "group_id", None)
     room_id: str | None = getattr(linebot_event.source, "room_id", None)
 
+    logger.info(f"Got event: {user_id=} {source_type=} {group_id=} {room_id=}")
     return user_id, source_type, reply_token, group_id, room_id
+
+
+def _parse_user_message_event(linebot_event: MessageEvent):
+    message_dict = linebot_event.message.to_dict()
+    user_message: str = message_dict["text"]
+    quote_token: str = message_dict["quoteToken"]
+    return user_message, quote_token

@@ -1,8 +1,8 @@
 import logging
 
-import app_config
-
+from food import app_config
 from food.db.mongo_db import MongoDB
+
 
 mongo_db = MongoDB(
     MongoDB.Parameter(

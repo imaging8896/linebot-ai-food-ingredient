@@ -1,10 +1,9 @@
-from . import app_config
-
 from flask import Flask, request, abort
 
 from linebot.v3.exceptions import InvalidSignatureError
 
-from .line_handler import linebot_handler
+from food import app_config
+from food.line_handler import linebot_handler
 
 
 app = Flask(app_config.APP_NAME)
