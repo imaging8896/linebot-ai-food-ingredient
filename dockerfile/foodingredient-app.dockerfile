@@ -17,6 +17,7 @@ ENV CONFIG=/opt/config/.env
 WORKDIR /app
 COPY --from=builder /root/.local /root/.local
 COPY ./food /app/food
+COPY ./app.py /app/app.py
 COPY ./logging.yml /app/logging.yml
 
 EXPOSE ${PORT}
