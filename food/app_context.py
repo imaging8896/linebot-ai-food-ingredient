@@ -13,4 +13,4 @@ mongo_db = MongoDB(
     )
 )
 
-app_logger = logging.getLogger("app")
+app_logger = logging.getLogger(app_config.APP_NAME)

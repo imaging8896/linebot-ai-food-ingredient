@@ -16,7 +16,7 @@ handlers:
     maxBytes: 131072000 # 1024* 1024* 125
     backupCount: 2
 loggers:
-  app:
+  ai-food-ingredient:
     level: INFO
     handlers: [console, app_error_file]
     propagate: no
@@ -29,6 +29,10 @@ loggers:
     handlers: [console, app_error_file]
     propagate: no
   helper:
+    level: INFO
+    handlers: [console, app_error_file]
+    propagate: no
+  line:
     level: INFO
     handlers: [console, app_error_file]
     propagate: no

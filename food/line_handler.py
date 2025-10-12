@@ -4,13 +4,14 @@ from datetime import datetime
 
 from linebot.v3 import WebhookHandler
 from linebot.v3.messaging import Configuration, ApiClient
-from linebot.v3.webhooks import MessageEvent, TextMessageContent, PostbackEvent, JoinEvent
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, ImageMessageContent, PostbackEvent, JoinEvent
 
 from . import app_config
 from . import app_context
+from .ai.openai import OpenAI
 from .helper import image as image_helper
 from .line import postback
-from .line.message.api import reply_message
+from .line.message import api as line_api
 from .line.message.direct_message_only import flex_message_direct_message_only
 from .line.message.text import flex_message_text
 from .line.message.welcome import flex_message_welcome
@@ -36,42 +37,75 @@ def handle_linebot_message_text(linebot_event: MessageEvent):
     #         "text": "123"
     #     },
     #     "timestamp": 1644116599193,
+    _, source_type, reply_token, _, _ = _parse_linebot_event(linebot_event)
+
+    if source_type != EventSourceType.USER:
+        logger.warning("Ignored user message event from not user direct")
+        return
+
+    with ApiClient(linebot_configuration) as api_client:
+        messages = []
+        try:
+            line_api.reply_message(api_client, reply_token, messages=[flex_message_welcome()])
+        except Exception:
+            logger.exception("Failed handling user message text event")
+            line_api.reply_message(api_client, reply_token, messages=messages + [flex_message_welcome(with_sorry_message=True)])
+
+
+@linebot_handler.add(MessageEvent, message=ImageMessageContent)
+def handle_linebot_message_image(linebot_event: MessageEvent):
+    # Line event
+    # {
+    #     "type": "message",
+    #     "message": :{
+    #       "type": "image",
+    #       "id": "582877727984714001",
+    #       "quoteToken": "xxxx",
+    #       "contentProvider": {"type": "line"}
+    #     },
+    #     "timestamp": 1644116599193,
     user_id, source_type, reply_token, _, _ = _parse_linebot_event(linebot_event)
 
     if source_type != EventSourceType.USER:
         logger.warning("Ignored user message event from not user direct")
         return
 
-    logger.info(f"Got user message event: {linebot_event.message.to_dict()=}")
-    user_message_type = _user_message_type(linebot_event)
-
     with ApiClient(linebot_configuration) as api_client:
         messages = []
         try:
-            if user_message_type == "image":
-                user_image_url = _parse_user_message_image(linebot_event)
+            local_image_file_name = f"{user_id}_{datetime.now().isoformat()}.png"
+            local_image_file = os.path.join(app_config.IMAGE_FOLDER, local_image_file_name)
+            saved_image_url = app_config.IMAGE_URL_PREFIX + "/" + local_image_file_name
 
-                local_image_file_name = f"{user_id}_{datetime.now().isoformat()}.png"
-                local_image_file = os.path.join(app_config.IMAGE_FOLDER, local_image_file_name)
-                saved_image_url = app_config.IMAGE_URL_PREFIX + "/" + local_image_file_name
+            try:
+                food_image_bytes = line_api.get_image(api_client, linebot_event.message.id, retry=3)
+            except line_api.UnableToFetchImageError:
+                messages.append(flex_message_text(text="無法取得圖片，請確認圖片是否有效，或稍後再試試。"))
+                raise
 
-                try:
-                    food_image_bytes = image_helper.get_image_bytes(user_image_url, retry=3)
-                except image_helper.UnableToFetchImageError:
-                    logger.error("Failed to get user message image")
-                    messages.append(flex_message_text(text="無法取得圖片，請確認圖片是否有效，或稍後再試試。"))
-                    raise
+            image_helper.remove_images(image_prefix=user_id, remove_folder=app_config.IMAGE_FOLDER)
+            
+            image_helper.save_image_to_file(food_image_bytes, local_image_file)
 
-                image_helper.save_image_to_file(food_image_bytes, local_image_file)
-                messages.append(flex_message_text(text=f"已收到圖片，圖片網址：{saved_image_url}"))
+            logger.info(f"已收到圖片，圖片網址：{saved_image_url}")
 
-                image_helper.remove_images(image_prefix=user_id, remove_folder=app_config.IMAGE_FOLDER)
+            food_ingredients = OpenAI().retrieve_food_ingredients_from_image_content(food_image_bytes)
+
+            if food_ingredients:
+                result = OpenAI().evaluate_food_ingredients(food_ingredients)
+                max_message_length = 1000
+                for i in range(0, len(result), max_message_length):
+                    if i == 4:
+                        messages.append(flex_message_text(text=result[i:i+max_message_length] + "\n過多無法顯示..."))
+                    else:
+                        messages.append(flex_message_text(text=result[i:i+max_message_length]))
             else:
-                # user_message, quote_token = _parse_user_message_text(linebot_event)
-                reply_message(api_client, reply_token, messages=[flex_message_welcome()])
+                messages.append(flex_message_text(text="無法辨識圖片中的食物成分，請確認圖片是否有效，或稍後再試試。"))
+
+            line_api.reply_message(api_client, reply_token, messages=messages)
         except Exception:
-            logger.exception(f"Failed handling user message {user_message_type} event")
-            reply_message(api_client, reply_token, messages=messages + [flex_message_welcome(with_sorry_message=True)])
+            logger.exception("Failed handling user message image event")
+            line_api.reply_message(api_client, reply_token, messages=messages + [flex_message_welcome(with_sorry_message=True)])
 
 
 @linebot_handler.add(PostbackEvent)
@@ -96,7 +130,7 @@ def handle_joined(event: JoinEvent):
 
     with ApiClient(linebot_configuration) as api_client:
         try:
-            reply_message(api_client, reply_token, messages=[flex_message_direct_message_only()])
+            line_api.reply_message(api_client, reply_token, messages=[flex_message_direct_message_only()])
         except Exception:
             logger.exception("Failed handling joined event")
 
@@ -142,15 +176,6 @@ def _parse_linebot_event(linebot_event: MessageEvent | PostbackEvent | JoinEvent
     return user_id, source_type, reply_token, group_id, room_id
 
 
-def _user_message_type(linebot_event: MessageEvent):
-    return str(linebot_event.message.to_dict()["type"])
-
-
 def _parse_user_message_text(linebot_event: MessageEvent):
     message_dict = linebot_event.message.to_dict()
     return str(message_dict["text"]), str(message_dict["quoteToken"])
-
-
-def _parse_user_message_image(linebot_event: MessageEvent):
-    message_dict = linebot_event.message.to_dict()
-    return str(message_dict["originalContentUrl"])
