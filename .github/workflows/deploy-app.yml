@@ -49,7 +49,7 @@ jobs:
         
         docker_log="-v ${{ vars.SERVER_LOG_PATH }}:${CONTAINER_LOG_PATH}"
         docker_config="-v ${{ vars.CONFIG_PATH }}:${CONTAINER_CONFIG_PATH}"
-        docker_image="-v ${{ vars.IMAGE_PATH }}:${CONTAINER_IMAGE_PATH}"
+        docker_image="-v ${{ vars.IMAGE_PATH }}:${CONTAINER_IMAGE_PATH} -e IMAGE_FOLDER=${CONTAINER_IMAGE_PATH}"
         echo "Deploy docker image ${DOCKER_IMAGE}"
         ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "sudo docker run -d --restart always -p ${{ secrets.SERVICE_PORT }}:${CONTAINER_PORT} --name ${{ vars.APP_NAME }} -m ${{ vars.APP_MEMORY }} --memory-swap ${{ vars.APP_SWAP }} ${docker_log} ${docker_config} ${docker_image} ${DOCKER_IMAGE}"
     - name: Checking APP service

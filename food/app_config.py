@@ -20,6 +20,9 @@ MONGO_DB_DATABASE = os.environ['MONGO_DB_DATABASE']
 MONGO_DB_USER = os.environ['MONGO_DB_USER']
 MONGO_DB_PASSWORD = os.environ['MONGO_DB_PASSWORD']
 
+IMAGE_FOLDER = os.environ["IMAGE_FOLDER"]
+IMAGE_URL_PREFIX = os.environ["IMAGE_URL_PREFIX"]
+
 if ENV is not None:
     LOG_CONFIG = "logging.yml"
     DEBUG = False

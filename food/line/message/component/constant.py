@@ -1,0 +1,2 @@
+OPEN_CAMERA_TEXT = "打開相機"
+OPEN_CAMERA_ROLL_TEXT = "打開相簿"

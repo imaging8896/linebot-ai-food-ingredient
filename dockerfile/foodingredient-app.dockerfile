@@ -11,7 +11,6 @@ FROM base
 
 ENV APP_NAME=app
 ENV PORT=5566
-ENV IMAGE_FOLDER=/var/html/image
 ENV CONFIG=/opt/config/.env
 
 WORKDIR /app
