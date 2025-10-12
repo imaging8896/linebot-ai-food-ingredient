@@ -8,6 +8,7 @@ from linebot.v3.webhooks import MessageEvent, TextMessageContent, ImageMessageCo
 
 from . import app_config
 from . import app_context
+from .ai.openai import OpenAI
 from .helper import image as image_helper
 from .line import postback
 from .line.message import api as line_api
@@ -85,7 +86,23 @@ def handle_linebot_message_image(linebot_event: MessageEvent):
             image_helper.remove_images(image_prefix=user_id, remove_folder=app_config.IMAGE_FOLDER)
             
             image_helper.save_image_to_file(food_image_bytes, local_image_file)
-            line_api.reply_message(api_client, reply_token, messages=messages + [flex_message_text(text=f"已收到圖片，圖片網址：{saved_image_url}")])
+
+            logger.info(f"已收到圖片，圖片網址：{saved_image_url}")
+
+            food_ingredients = OpenAI().retrieve_food_ingredients_from_image_content(food_image_bytes)
+
+            if food_ingredients:
+                result = OpenAI().evaluate_food_ingredients(food_ingredients)
+                max_message_length = 1000
+                for i in range(0, len(result), max_message_length):
+                    if i == 4:
+                        messages.append(flex_message_text(text=result[i:i+max_message_length] + "\n過多無法顯示..."))
+                    else:
+                        messages.append(flex_message_text(text=result[i:i+max_message_length]))
+            else:
+                messages.append(flex_message_text(text="無法辨識圖片中的食物成分，請確認圖片是否有效，或稍後再試試。"))
+
+            line_api.reply_message(api_client, reply_token, messages=messages)
         except Exception:
             logger.exception("Failed handling user message image event")
             line_api.reply_message(api_client, reply_token, messages=messages + [flex_message_welcome(with_sorry_message=True)])
