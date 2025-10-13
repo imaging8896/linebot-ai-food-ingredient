@@ -83,7 +83,7 @@ def handle_linebot_message_image(linebot_event: MessageEvent):
                 messages.append(flex_message_text(text="無法取得圖片，請確認圖片是否有效，或稍後再試試。"))
                 raise
 
-            image_helper.remove_images(image_prefix=user_id, remove_folder=app_config.IMAGE_FOLDER)
+            # image_helper.remove_images(image_prefix=user_id, remove_folder=app_config.IMAGE_FOLDER)
             
             image_helper.save_image_to_file(food_image_bytes, local_image_file)
 
