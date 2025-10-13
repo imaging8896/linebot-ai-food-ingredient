@@ -33,8 +33,8 @@ class OpenAI:
         )
 
         response = self.client.responses.create(
-            # model="o4-mini", # 貴一些
-            model="gpt-5-mini", # 目前只有 o4-mini 支援圖片辨識
+            model="o4-mini", # 貴一些
+            # model="gpt-5-mini",
             temperature=1,
             input=query.value,  # type: ignore
         )
@@ -51,8 +51,8 @@ class OpenAI:
                 Statement.system(
                     Statement.Content(
                         Statement.Content.Type.TEXT, 
-                        "輸入食物成分（以『,』分隔），請評估每一個食物成分『描述用途(50字以內)』『是否天然』『是否是添加物』『是否有健康疑慮』。"
-                        "只輸出分析結果，不要有其他廢話。"
+                        "輸入食物成分（以『,』分隔），請評估每一個食物成分『俗稱』『描述用途』『是否天然』『是否是添加物』『有健康疑慮的原因』。"
+                        "去除並且不分析重複的成分，只輸出可能不健康的成分，不要有其他廢話。"
                     )
                 ),
                 Statement.user(
@@ -62,7 +62,7 @@ class OpenAI:
         )
 
         response = self.client.responses.create(
-            model="o3-mini", # 貴一些
+            model="o3-mini",
             temperature=1,
             input=query.value,  # type: ignore
         )
