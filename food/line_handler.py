@@ -13,7 +13,7 @@ from .helper import image as image_helper
 from .line import postback
 from .line.message import api as line_api
 from .line.message.direct_message_only import flex_message_direct_message_only
-from .line.message.text import flex_message_text
+from .line.message.text import flex_message_texts
 from .line.message.welcome import flex_message_welcome
 from .line.event import EventSourceType
 
@@ -80,7 +80,7 @@ def handle_linebot_message_image(linebot_event: MessageEvent):
             try:
                 food_image_bytes = line_api.get_image(api_client, linebot_event.message.id, retry=3)
             except line_api.UnableToFetchImageError:
-                messages.append(flex_message_text(text="無法取得圖片，請確認圖片是否有效，或稍後再試試。"))
+                messages.extend(flex_message_texts(text="無法取得圖片，請確認圖片是否有效，或稍後再試試。"))
                 raise
 
             food_image_bytes = image_helper.compressed_image_bytes(food_image_bytes)
@@ -95,14 +95,11 @@ def handle_linebot_message_image(linebot_event: MessageEvent):
 
             if food_ingredients:
                 result = OpenAI().evaluate_food_ingredients(food_ingredients)
-                max_message_length = 1000
-                for i in range(0, len(result), max_message_length):
-                    if i == 4:
-                        messages.append(flex_message_text(text=result[i:i+max_message_length] + "\n過多無法顯示..."))
-                    else:
-                        messages.append(flex_message_text(text=result[i:i+max_message_length]))
+                result = "無可能有害成分" if not result else result
+                result = "\n".join(["**AI分析結果僅供參考**", "從圖中找到食品成分：" + ", ".join(food_ingredients), result, "**AI分析結果僅供參考**"])
+                messages.extend(flex_message_texts(text=result))
             else:
-                messages.append(flex_message_text(text="無法辨識圖片中的食物成分，請確認圖片是否有效，或稍後再試試。"))
+                messages.extend(flex_message_texts(text="無法辨識圖片中的食物成分，請確認圖片是否有效，或稍後再試試。"))
 
             line_api.reply_message(api_client, reply_token, messages=messages)
         except Exception:
