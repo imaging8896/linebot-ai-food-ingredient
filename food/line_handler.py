@@ -95,7 +95,8 @@ def handle_linebot_message_image(linebot_event: MessageEvent):
 
             if food_ingredients:
                 result = OpenAI().evaluate_food_ingredients(food_ingredients)
-                result = "\n".join(["**AI分析結果僅供參考**", result, "**AI分析結果僅供參考**"])
+                result = "無可能有害成分" if not result else result
+                result = "\n".join(["**AI分析結果僅供參考**", "從圖中找到食品成分：" + ", ".join(food_ingredients), result, "**AI分析結果僅供參考**"])
                 messages.extend(flex_message_texts(text=result))
             else:
                 messages.extend(flex_message_texts(text="無法辨識圖片中的食物成分，請確認圖片是否有效，或稍後再試試。"))
