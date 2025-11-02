@@ -1,5 +1,6 @@
 import os
 
+from dataclasses import dataclass
 from datetime import datetime
 
 from linebot.v3 import WebhookHandler
@@ -52,6 +53,34 @@ def handle_linebot_message_text(linebot_event: MessageEvent):
             line_api.reply_message(api_client, reply_token, messages=messages + [flex_message_welcome(with_sorry_message=True)])
 
 
+@dataclass(frozen=True)
+class FoodIngredient:
+    name: str
+    protein: float | None = None
+    carbs: float | None = None
+    fat: float | None = None
+    fiber: float | None = None
+
+    def __str__(self) -> str:
+        if self.protein is None and self.carbs is None and self.fat is None and self.fiber is None:
+            return f"{self.name}"
+        
+        msg = []
+        if self.protein is not None:
+            msg.append(f"蛋白質{self.protein:.1f}g")
+        if self.carbs is not None:
+            msg.append(f"碳水{self.carbs:.1f}g")
+        if self.fat is not None:
+            msg.append(f"脂肪{self.fat:.1f}g")
+        if self.fiber is not None:
+            msg.append(f"膳食纖維{self.fiber:.1f}g")
+
+        return f"{self.name}({','.join(msg)})"
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+
 @linebot_handler.add(MessageEvent, message=ImageMessageContent)
 def handle_linebot_message_image(linebot_event: MessageEvent):
     # Line event
@@ -91,12 +120,23 @@ def handle_linebot_message_image(linebot_event: MessageEvent):
 
             logger.info(f"已收到圖片，圖片網址：{saved_image_url}")
 
-            food_ingredients = OpenAI().retrieve_food_ingredients_from_image_content(food_image_bytes)
+            food_ingredient_info = OpenAI().evaluate_food_from_image_content(food_image_bytes)
 
-            if food_ingredients:
-                result = OpenAI().evaluate_food_ingredients(food_ingredients)
+            if food_ingredient_info:
+                food_ingredients = [
+                    FoodIngredient(name, *info) if info else FoodIngredient(name) 
+                    for name, info in food_ingredient_info.items()
+                ]
+
+                result = OpenAI().evaluate_food_ingredients([x.name for x in food_ingredients])
                 result = "無可能有害成分" if not result else result
-                result = "\n".join(["**AI分析結果僅供參考**", "從圖中找到食品成分：" + ", ".join(food_ingredients), result, "**AI分析結果僅供參考**"])
+                result = "\n".join([
+                    "**AI分析結果僅供參考**", 
+                    "從圖中找到食品成分：", 
+                    *[str(x) for x in food_ingredients], 
+                    result, 
+                    "**AI分析結果僅供參考**"
+                ])
                 messages.extend(flex_message_texts(text=result))
             else:
                 messages.extend(flex_message_texts(text="無法辨識圖片中的食物成分，請確認圖片是否有效，或稍後再試試。"))
