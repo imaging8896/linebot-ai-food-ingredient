@@ -23,8 +23,8 @@ def flex_message_welcome(with_sorry_message: bool = False) -> FlexMessage:
             body=FlexBox(
                 layout="vertical",
                 contents=[
-                    FlexText(text=f"1.點選『{OPEN_CAMERA_TEXT}』拍下食物成分。", wrap=True),  # type: ignore
-                    FlexText(text=f"2.點選『{OPEN_CAMERA_ROLL_TEXT}』打開相簿，選擇食物成分照片。", wrap=True),  # type: ignore
+                    FlexText(text=f"1.點選『{OPEN_CAMERA_TEXT}』拍下食物成分或是食物本身（最好放一個湯匙當比例尺會更準確）。", wrap=True),  # type: ignore
+                    FlexText(text=f"2.點選『{OPEN_CAMERA_ROLL_TEXT}』打開相簿，選擇食物成分或是食物的照片。", wrap=True),  # type: ignore
                 ]
             )  # type: ignore
         ),
